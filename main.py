@@ -4,7 +4,7 @@ from collections import Counter
 import docker
 from mpublisher import AvahiPublisher
 
-LOCAL_CNAME = "local_cname"
+LOCAL_CNAME = "docker.avahi.cname"
 docker = docker.from_env()
 START_EVENT = "start"
 DIE_EVENT = "die"
@@ -47,16 +47,34 @@ def _event_to_labels(e):
     return e.get("Actor", {}).get("Attributes", {})
 
 
+def _parse_attrs(attribs):
+    """
+    Extract values from labels/attribs set as list of strings in docker-compose
+    """
+    parsed = {}
+    for k, v in attribs.items():
+        if v == "":
+            parts = k.split(":")
+            k = parts[0]
+            v = ":".join(parts[1:])
+        parsed[k] = v
+    return parsed
+
+
+def _test_true_value(v):
+    return str(v).lower().strip() == "true"
+
+
 def _attributes_to_cnames(attribs):
     cnames = []
-
+    attribs = _parse_attrs(attribs)
     if name := attribs.get(LOCAL_CNAME):
-        if name in (True, "True"):
+        if _test_true_value(name):
             cnames.append(attribs.get("com.docker.compose.service"))
         else:
             cnames.append(name)
     cnames = [f"{cname}.local" for cname in cnames]
-    if attribs.get(TRAEFIK_ON):
+    if _test_true_value(attribs.get(TRAEFIK_ON, False)):
         rules = attribs.get(TRAEFIK_WHOAMI, "")
         for (cname,) in traefik_rule_re.findall(rules):
             cnames.append(cname)
