@@ -1,2 +1,3 @@
-mdns-publisher 
+mdns-publisher
 docker
+six
